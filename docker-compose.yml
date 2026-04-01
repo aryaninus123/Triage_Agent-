@@ -1,0 +1,19 @@
+services:
+  triage-agent:
+    build: .
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - NODE_ENV=production
+      - DB_PATH=./data/triage.db
+      - PORT=3000
+      - LOG_TIMING=true
+      - ENABLE_KB_SEARCH=true
+      - ENABLE_CUSTOMER_HISTORY=true
+    volumes:
+      - triage-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  triage-data:
