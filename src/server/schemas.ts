@@ -3,7 +3,7 @@ import { z } from "zod";
 export const TriageRequestSchema = z.object({
   id: z
     .string()
-    .regex(/^[A-Z]+-\d+$/, "Ticket ID must match pattern like TKT-001")
+    .regex(/^[A-Z]+-[A-Z0-9]+$/, "Ticket ID must match pattern like TKT-001 or TKT-A1B2C3D4")
     .optional(),
   customerName: z.string().min(1).max(200),
   customerEmail: z.string().email(),

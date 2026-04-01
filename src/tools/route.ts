@@ -92,6 +92,7 @@ export function computeSLA(priority: TicketPriority, urgencyScore: number): SLAT
 export interface RouteTicketResult extends RoutingResult {
   appliedRules: AppliedRule[];
   tags: string[];
+  notifyChannels: string[];
 }
 
 /**
@@ -133,5 +134,6 @@ export function routeTicket(
     sla,
     appliedRules: ruleResult.appliedRules,
     tags: ruleResult.tags,
+    notifyChannels: ruleResult.notifyChannels,
   };
 }

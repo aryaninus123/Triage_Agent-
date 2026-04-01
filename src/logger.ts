@@ -1,4 +1,4 @@
-import type { TriageResult } from "./types";
+import type { AppliedRule, TriageResult } from "./types";
 
 const RESET = "\x1b[0m";
 const BOLD = "\x1b[1m";
@@ -56,7 +56,7 @@ export class TriageLogger {
   }
 
   summary(result: TriageResult, totalMs: number): void {
-    const { ticket, classification, routing, draft, customerHistory, kbArticles } = result;
+    const { ticket, classification, routing, draft, customerHistory, kbArticles, appliedRules, tags } = result;
 
     const priorityColor = PRIORITY_COLOR[classification.priority] ?? RESET;
     const tierColor = customerHistory ? (TIER_COLOR[customerHistory.tier] ?? RESET) : RESET;
@@ -99,6 +99,19 @@ export class TriageLogger {
     console.log(`  SLA          : ${routing.sla.label}`);
     console.log(`  Reason       : ${routing.reason}`);
 
+    // Applied rules & tags
+    if (appliedRules && appliedRules.length > 0) {
+      console.log(`\n${BOLD}Rules Applied${RESET}`);
+      for (const rule of appliedRules) {
+        const actions = formatRuleActions(rule);
+        console.log(`  ${MAGENTA}●${RESET} ${rule.ruleName} ${DIM}(${rule.ruleId})${RESET}`);
+        if (actions) console.log(`    ${DIM}${actions}${RESET}`);
+      }
+    }
+    if (tags && tags.length > 0) {
+      console.log(`\n${BOLD}Tags${RESET}  ${tags.map((t) => `${YELLOW}[${t}]${RESET}`).join(" ")}`);
+    }
+
     // KB articles
     if (kbArticles && kbArticles.length > 0) {
       console.log(`\n${BOLD}KB Articles Suggested${RESET}`);
@@ -116,6 +129,15 @@ export class TriageLogger {
     console.log(`\n${draft.body.split("\n").map((l) => `  ${l}`).join("\n")}`);
     console.log(`\n${"─".repeat(64)}`);
   }
+}
+
+function formatRuleActions(rule: AppliedRule): string {
+  const parts: string[] = [];
+  if (rule.actions.forceTeam) parts.push(`team→${rule.actions.forceTeam}`);
+  if (rule.actions.forceEscalate !== undefined) parts.push(`escalate=${rule.actions.forceEscalate}`);
+  if (rule.actions.addTag) parts.push(`tag="${rule.actions.addTag}"`);
+  if (rule.actions.notifyChannel) parts.push(`notify=${rule.actions.notifyChannel}`);
+  return parts.join(", ");
 }
 
 function urgencyBar(score: number): string {

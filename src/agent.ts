@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type Database from "better-sqlite3";
 import { DEFAULT_CONFIG } from "./config";
 import { appendAuditEvent } from "./db/audit-store";
+import { upsertCustomerTicketCount } from "./db/customer-store";
 import { insertTriageResult } from "./db/triage-store";
 import { updateTicketStatus } from "./db/ticket-store";
 import { eventBus } from "./events/event-bus";
@@ -23,6 +24,29 @@ import type {
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelayMs = 1000
+): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      const isRetryable =
+        err instanceof Anthropic.RateLimitError ||
+        err instanceof Anthropic.InternalServerError ||
+        err instanceof Anthropic.APIConnectionError;
+
+      if (!isRetryable || attempt === maxRetries) throw err;
+
+      const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 500;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw new Error("Unreachable");
+}
 
 // ─── Tool definitions ──────────────────────────────────────────────────────
 
@@ -250,10 +274,13 @@ function dispatchTool(
         state.classification!,
         state.customerHistory
       );
+      const notifyInfo = result.notifyChannels.length > 0
+        ? ` notify=[${result.notifyChannels.join(",")}]`
+        : "";
       logger.tool(
         name,
         Date.now() - start,
-        `team=${result.team} escalate=${result.escalate} urgency=${result.urgencyScore} rules=${result.appliedRules.length}`
+        `team=${result.team} escalate=${result.escalate} urgency=${result.urgencyScore} rules=${result.appliedRules.length}${notifyInfo}`
       );
       return {
         result,
@@ -360,22 +387,24 @@ ${ticket.body}`;
   ];
 
   let state: AgentState = { ticket };
+  const MAX_ITERATIONS = 15;
 
   try {
-    // Agentic loop — keeps running until Claude stops calling tools
-    while (true) {
+    for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
       logger.startTimer("llm");
-      const response = await client.messages.create({
-        model: config.model,
-        max_tokens: config.maxTokens,
-        system: buildSystemPrompt(config),
-        tools: buildTools(config),
-        messages,
-      });
+      const response = await withRetry(() =>
+        client.messages.create({
+          model: config.model,
+          max_tokens: config.maxTokens,
+          system: buildSystemPrompt(config),
+          tools: buildTools(config),
+          messages,
+        })
+      );
       const llmMs = logger.endTimer("llm");
 
       if (config.logTiming) {
-        logger.info(`LLM response (${llmMs}ms) — stop_reason=${response.stop_reason}`);
+        logger.info(`LLM response (${llmMs}ms) — stop_reason=${response.stop_reason} iteration=${iteration + 1}/${MAX_ITERATIONS}`);
       }
 
       messages.push({ role: "assistant", content: response.content });
@@ -409,6 +438,10 @@ ${ticket.body}`;
       } else {
         break;
       }
+
+      if (iteration === MAX_ITERATIONS - 1) {
+        logger.warn(`Agent hit max iterations (${MAX_ITERATIONS}) for ticket ${ticket.id}`);
+      }
     }
 
     if (!state.classification || !state.routing || !state.draft) {
@@ -432,6 +465,7 @@ ${ticket.body}`;
     if (db) {
       insertTriageResult(db, result, totalMs, config.model);
       updateTicketStatus(db, ticket.id, result.routing.escalate ? "escalated" : "triaged");
+      upsertCustomerTicketCount(db, ticket.customerEmail, result.classification.sentiment);
 
       appendAuditEvent(db, {
         timestamp: new Date().toISOString(),
