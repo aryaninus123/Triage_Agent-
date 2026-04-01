@@ -1,0 +1,98 @@
+[
+  {
+    "id": "rule-001",
+    "name": "Enterprise billing always escalates",
+    "description": "Any high/urgent billing issue from an enterprise customer must be escalated immediately",
+    "priority": 10,
+    "enabled": true,
+    "conditionMode": "AND",
+    "conditions": [
+      { "field": "category", "operator": "in", "value": ["billing", "refund"] },
+      { "field": "tier", "operator": "eq", "value": "enterprise" },
+      { "field": "priority", "operator": "in", "value": ["high", "urgent"] }
+    ],
+    "actions": {
+      "forceTeam": "billing-team",
+      "forceEscalate": true,
+      "addTag": "enterprise-billing-escalation",
+      "notifyChannel": "slack-billing-escalations"
+    }
+  },
+  {
+    "id": "rule-002",
+    "name": "Low-confidence classification needs review",
+    "description": "Flag tickets where AI confidence is below 60% for human review",
+    "priority": 50,
+    "enabled": true,
+    "conditionMode": "AND",
+    "conditions": [
+      { "field": "confidence", "operator": "lte", "value": 0.6 }
+    ],
+    "actions": {
+      "addTag": "needs-human-review"
+    }
+  },
+  {
+    "id": "rule-003",
+    "name": "Duplicate ticket tagging",
+    "description": "Tag suspected duplicate tickets for consolidation",
+    "priority": 60,
+    "enabled": true,
+    "conditionMode": "AND",
+    "conditions": [
+      { "field": "isDuplicate", "operator": "eq", "value": true }
+    ],
+    "actions": {
+      "addTag": "duplicate-suspected",
+      "forceEscalate": false
+    }
+  },
+  {
+    "id": "rule-004",
+    "name": "Angry enterprise customer — always escalate",
+    "description": "Any angry enterprise customer should be escalated regardless of priority",
+    "priority": 5,
+    "enabled": true,
+    "conditionMode": "AND",
+    "conditions": [
+      { "field": "tier", "operator": "eq", "value": "enterprise" },
+      { "field": "sentiment", "operator": "in", "value": ["angry", "frustrated"] }
+    ],
+    "actions": {
+      "forceEscalate": true,
+      "addTag": "enterprise-at-risk",
+      "notifyChannel": "slack-csm-alerts"
+    }
+  },
+  {
+    "id": "rule-005",
+    "name": "Non-English ticket routing",
+    "description": "Non-English tickets routed to customer success for human handling",
+    "priority": 20,
+    "enabled": true,
+    "conditionMode": "AND",
+    "conditions": [
+      { "field": "language", "operator": "notIn", "value": ["en"] }
+    ],
+    "actions": {
+      "forceTeam": "customer-success",
+      "addTag": "non-english"
+    }
+  },
+  {
+    "id": "rule-006",
+    "name": "Critical urgency score fast-track",
+    "description": "Any ticket with urgency >= 95 gets tagged for immediate handling",
+    "priority": 1,
+    "enabled": true,
+    "conditionMode": "AND",
+    "conditions": [
+      { "field": "urgencyScore", "operator": "gte", "value": 95 }
+    ],
+    "actions": {
+      "forceEscalate": true,
+      "addTag": "critical-priority",
+      "notifyChannel": "pagerduty-support"
+    }
+  }
+]

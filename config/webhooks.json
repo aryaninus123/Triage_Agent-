@@ -1,0 +1,8 @@
+[
+  {
+    "_comment": "Example webhook — replace with your actual endpoint URL and secret",
+    "event": "ticket.escalated",
+    "url": "https://hooks.example.com/triage/escalated",
+    "secret": "replace-with-your-hmac-secret"
+  }
+]
