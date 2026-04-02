@@ -1,5 +1,7 @@
 # syntax=docker/dockerfile:1
-FROM node:20-slim AS builder
+
+# ── Stage 1: Build Express backend ──────────────────────────────────────────
+FROM node:20-slim AS backend-builder
 
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -8,6 +10,16 @@ COPY tsconfig.json ./
 COPY src/ ./src/
 RUN npm run build
 
+# ── Stage 2: Build React frontend ───────────────────────────────────────────
+FROM node:20-slim AS client-builder
+
+WORKDIR /app/client
+COPY client/package.json client/package-lock.json ./
+RUN npm ci
+COPY client/ ./
+RUN npm run build
+
+# ── Stage 3: Runtime ─────────────────────────────────────────────────────────
 FROM node:20-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -20,7 +32,8 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 RUN apt-get purge -y python3 make g++ && apt-get autoremove -y
 
-COPY --from=builder /app/dist ./dist
+COPY --from=backend-builder /app/dist ./dist
+COPY --from=client-builder /app/client/dist ./client/dist
 COPY config/ ./config/
 
 RUN mkdir -p data && chown -R node:node /app

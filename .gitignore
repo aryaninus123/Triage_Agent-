@@ -3,3 +3,5 @@ dist/
 data/triage.db
 .env
 *.js.map
+client/node_modules/
+client/dist/

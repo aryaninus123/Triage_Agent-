@@ -5,9 +5,12 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
+    "build:client": "npm --prefix client install && npm --prefix client run build",
+    "build:all": "npm run build && npm run build:client",
     "start": "node dist/server/server.js",
     "start:demo": "node dist/index.js",
     "dev": "ts-node src/server/server.ts",
+    "dev:client": "npm --prefix client run dev",
     "demo": "ts-node src/index.ts"
   },
   "dependencies": {
