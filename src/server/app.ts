@@ -36,11 +36,15 @@ export function createApp(
   // Serve React frontend in production
   if (process.env.NODE_ENV === "production") {
     const clientDist = path.resolve(__dirname, "../../client/dist");
+    console.log(`[static] looking for client build at: ${clientDist}`);
     if (fs.existsSync(clientDist)) {
+      console.log(`[static] serving React app from ${clientDist}`);
       app.use(express.static(clientDist));
       app.get("*", (_req, res) => {
         res.sendFile(path.join(clientDist, "index.html"));
       });
+    } else {
+      console.warn(`[static] client/dist not found — React app will not be served`);
     }
   }
 
